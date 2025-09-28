@@ -1,8 +1,0 @@
-Flask
-rembg[gpu]
-Pillow
-requests
-opencv-python
-numpy
-gunicorn
-python-dotenv
