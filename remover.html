@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Photo Editor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+  <style>
+    .chip { padding: 0.25rem 0.6rem; border: 1px solid #e5e7eb; border-radius: 9999px; font-size: 0.85rem; }
+    .chip.active { background:#4f46e5; color:white; border-color:#4f46e5; }
+    #editor-modal { display: none; }
+    #editor-canvas { cursor: crosshair; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+<header class="bg-white shadow-sm">
+  <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+    <h1 class="text-2xl font-bold text-indigo-700">Artify AI</h1>
+    <nav>
+      <ul class="flex space-x-6">
+        <li><a href="index.html" class="text-gray-600 hover:text-indigo-800 font-medium">Home</a></li>
+        <li><a href="remover.html" class="text-indigo-600 hover:text-indigo-800 font-medium">Editor</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main class="container mx-auto px-4 py-8">
+  <div class="max-w-5xl mx-auto">
+    <h2 class="text-3xl font-bold text-center text-gray-800 mb-2">AI Photo Editor</h2>
+    <p class="text-center text-gray-600 mb-8">Remove backgrounds, correct mistakes, and generate new scenes with AI</p>
+
+    <div class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+      <div id="upload-area" class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer transition-colors hover:border-indigo-400">
+        <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+        <h3 class="text-xl font-semibold mb-2">Drag & Drop your image here</h3>
+        <p class="text-gray-500 mb-4">or</p>
+        <button id="browse-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg">Browse Files</button>
+        <input type="file" id="file-input" accept="image/*" class="hidden">
+      </div>
+
+      <div id="preview-container" class="hidden mt-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="preview-box">
+            <h3 class="font-semibold text-gray-700 mb-2">Original Image</h3>
+            <div class="border rounded-lg overflow-hidden">
+              <img id="original-preview" src="" alt="Original image" class="w-full h-auto">
+            </div>
+          </div>
+          <div class="preview-box">
+            <h3 class="font-semibold text-gray-700 mb-2">Result</h3>
+            <div class="border rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center relative">
+              <img id="result-preview" src="" alt="Result image" class="w-full h-auto hidden">
+              <div id="loading" class="absolute inset-0 flex items-center justify-center bg-white/70">
+                <div class="text-center">
+                  <i class="fas fa-spinner fa-spin text-3xl text-indigo-600 mb-2"></i>
+                  <p class="text-gray-700">Processing...</p>
+                </div>
+              </div>
+              <div id="placeholder" class="text-center py-12 text-gray-500">
+                <i class="fas fa-image text-3xl mb-2"></i>
+                <p>Result will appear here</p>
+              </div>
+            </div>
+            <button id="edit-mask-btn" class="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg hidden"><i class="fas fa-magic-wand-sparkles mr-2"></i> Edit & Refine</button>
+          </div>
+        </div>
+        
+        <div id="advanced-options" class="mt-6 bg-gray-50 rounded-xl p-4 hidden">
+          <h3 class="text-lg font-semibold mb-3">Creative Tools</h3>
+          
+          <div class="mb-6 p-4 border rounded-lg bg-white shadow-sm">
+             <label class="block text-gray-700 mb-2 font-semibold">✨ AI Background Generator</label>
+             <div class="space-y-2">
+               <textarea id="prompt-input" rows="3" class="w-full p-2 border rounded-lg" placeholder="e.g., A magical forest with glowing mushrooms at night..."></textarea>
+               <button id="generate-bg-btn" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg">
+                   <span id="generate-btn-text">Generate</span>
+                   <i id="generate-spinner" class="fas fa-spinner fa-spin hidden ml-2"></i>
+               </button>
+             </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-gray-700 mb-2">Background Color</label>
+              <div class="flex flex-wrap gap-2 mb-2">
+                <button class="chip" data-bg="transparent">Transparent</button>
+                <button class="chip" data-bg="#ffffff">White</button>
+                <button class="chip" data-bg="#000000">Black</button>
+                <button class="chip" data-bg="#f43f5e">Red</button>
+                <button class="chip" data-bg="#3b82f6">Blue</button>
+                <button class="chip" data-bg="#22c55e">Green</button>
+                <button class="chip" data-bg="gradient">Gradient</button>
+              </div>
+              <div class="mt-2">
+                <label class="block text-gray-700 mb-1">Custom Image</label>
+                <input type="file" id="bg-image-input" accept="image/*" class="w-full text-sm">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-gray-700 mb-2">Edge & Effects</label>
+              <div class="space-y-2">
+                <label class="flex items-center gap-2">
+                  <span class="w-24 text-sm">Feather</span>
+                  <input id="feather" type="range" min="0" max="20" value="0" class="w-full">
+                </label>
+                <label class="flex items-center gap-2">
+                  <span class="w-24 text-sm">Outline</span>
+                  <input id="outline" type="range" min="0" max="20" value="0" class="w-full">
+                </label>
+                <label class="flex items-center gap-2">
+                  <span class="w-24 text-sm">Shadow</span>
+                  <input id="shadow" type="range" min="0" max="30" value="0" class="w-full">
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-gray-700 mb-2">Export</label>
+              <select id="output-format" class="w-full p-2 border rounded-lg mb-2">
+                <option value="png">PNG (Transparent OK)</option>
+                <option value="jpg">JPG (No transparency)</option>
+                <option value="webp">WebP</option>
+              </select>
+              <button id="download-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg disabled:opacity-50" disabled>
+                <i class="fas fa-download mr-2"></i> Download Result
+              </button>
+              <button id="reset-btn" class="w-full mt-2 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg">Reset</button>
+            </div>
+          </div>
+          <p id="error" class="mt-3 text-sm text-red-600 hidden"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="editor-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-4xl w-full">
+        <h3 class="text-2xl font-bold mb-4">Refine Mask</h3>
+        <p class="text-gray-600 mb-4">Paint with green to <b class="text-green-600">KEEP</b> parts, and with red to <b class="text-red-600">REMOVE</b> them.</p>
+        <div class="flex gap-4 mb-4 items-center">
+            <button id="brush-keep" class="border-2 border-green-500 bg-green-500 text-white py-1 px-3 rounded-lg"><i class="fas fa-plus"></i> Keep</button>
+            <button id="brush-remove" class="border-2 border-gray-300 py-1 px-3 rounded-lg"><i class="fas fa-eraser"></i> Remove</button>
+            <label class="flex items-center gap-2">
+                <span>Brush Size:</span>
+                <input id="brush-size" type="range" min="5" max="100" value="20" class="w-40">
+            </label>
+        </div>
+        <div class="border rounded-lg overflow-hidden relative" id="canvas-container" style="max-height: 60vh; overflow: auto;"></div>
+        <div class="flex justify-end gap-4 mt-4">
+            <button id="cancel-edit-btn" class="bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-6 rounded-lg">Cancel</button>
+            <button id="apply-edit-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-6 rounded-lg">Apply Refinements</button>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- All Element variables ---
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+    const browseBtn = document.getElementById('browse-btn');
+    const previewContainer = document.getElementById('preview-container');
+    const originalPreview = document.getElementById('original-preview');
+    const resultPreview = document.getElementById('result-preview');
+    const loading = document.getElementById('loading');
+    const placeholder = document.getElementById('placeholder');
+    const errorEl = document.getElementById('error');
+    const advancedOptionsContainer = document.getElementById('advanced-options');
+
+    // -- Advanced Options variables --
+    const downloadBtn = document.getElementById('download-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const outputFormat = document.getElementById('output-format');
+    const chips = Array.from(document.querySelectorAll('.chip'));
+    const bgImageInput = document.getElementById('bg-image-input');
+    const featherEl = document.getElementById('feather');
+    const outlineEl = document.getElementById('outline');
+    const shadowEl = document.getElementById('shadow');
+
+    // -- Mask Editor variables --
+    const editMaskBtn = document.getElementById('edit-mask-btn');
+    const editorModal = document.getElementById('editor-modal');
+    const cancelEditBtn = document.getElementById('cancel-edit-btn');
+    const applyEditBtn = document.getElementById('apply-edit-btn');
+    const canvasContainer = document.getElementById('canvas-container');
+    const brushKeepBtn = document.getElementById('brush-keep');
+    const brushRemoveBtn = document.getElementById('brush-remove');
+    const brushSizeSlider = document.getElementById('brush-size');
+    let editorCanvas, ctx, isDrawing = false, brushColor = 'rgba(0, 255, 0, 0.7)', brushSize = 20;
+
+    // -- AI Generator variables --
+    const promptInput = document.getElementById('prompt-input');
+    const generateBgBtn = document.getElementById('generate-bg-btn');
+    const generateBtnText = document.getElementById('generate-btn-text');
+    const generateSpinner = document.getElementById('generate-spinner');
+
+    // --- State variables ---
+    let selectedFile = null;
+    let baseCutoutBlob = null;
+    let currentPreviewBlob = null;
+    let selectedBG = 'transparent';
+    let bgImageURL = null;
+
+    function setError(msg) {
+        if (!msg) { errorEl.classList.add('hidden'); errorEl.textContent=''; return; }
+        errorEl.textContent = msg; errorEl.classList.remove('hidden');
+    }
+
+    // --- Main Upload Logic ---
+    browseBtn.addEventListener('click', () => fileInput.click());
+    uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('border-indigo-500','bg-indigo-50'); });
+    uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('border-indigo-500','bg-indigo-50'));
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault(); uploadArea.classList.remove('border-indigo-500','bg-indigo-50');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => e.target.files.length && handleFile(e.target.files[0]));
+
+    function handleFile(file) {
+        setError('');
+        if (!file.type.startsWith('image/')) { setError('Please select an image file'); return; }
+        selectedFile = file;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            originalPreview.src = e.target.result;
+            previewContainer.classList.remove('hidden');
+            placeholder.classList.add('hidden');
+            loading.classList.remove('hidden');
+            resultPreview.classList.add('hidden');
+            editMaskBtn.classList.add('hidden');
+            advancedOptionsContainer.classList.add('hidden');
+            removeBG(selectedFile).catch(err => setError(err.message || 'Processing failed.'));
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    async function removeBG(file) {
+        setError('');
+        const fd = new FormData();
+        fd.append('image', file);
+        const res = await fetch('/remove-background', { method: 'POST', body: fd });
+        if (!res.ok) { throw new Error(await res.text() || 'Server error'); }
+        baseCutoutBlob = await res.blob();
+        currentPreviewBlob = baseCutoutBlob;
+        resultPreview.src = URL.createObjectURL(baseCutoutBlob);
+        
+        loading.classList.add('hidden');
+        resultPreview.classList.remove('hidden');
+        editMaskBtn.classList.remove('hidden');
+        advancedOptionsContainer.classList.remove('hidden');
+        downloadBtn.disabled = false;
+        
+        if (window.anime) anime({ targets: resultPreview, opacity: [0, 1], duration: 500 });
+    }
+
+    // --- AI Generator Logic ---
+    generateBgBtn.addEventListener('click', async () => {
+        const prompt = promptInput.value;
+        if (!prompt) {
+            setError('Please provide a prompt.');
+            return;
+        }
+        setError('');
+        generateBtnText.textContent = 'Generating...';
+        generateSpinner.classList.remove('hidden');
+        generateBgBtn.disabled = true;
+
+        try {
+            const fd = new FormData();
+            fd.append('prompt', prompt);
+            const res = await fetch('/generate-background', { method: 'POST', body: fd });
+            if (!res.ok) { throw new Error(await res.text() || 'Failed to generate background.'); }
+            const generatedBlob = await res.blob();
+            bgImageURL = URL.createObjectURL(generatedBlob);
+            selectedBG = 'custom';
+            chips.forEach(c => c.classList.remove('active'));
+            await recomposePreview();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            generateBtnText.textContent = 'Generate';
+            generateSpinner.classList.add('hidden');
+            generateBgBtn.disabled = false;
+        }
+    });
+
+    // --- Mask Editor Logic ---
+    editMaskBtn.addEventListener('click', () => {
+        setupCanvas();
+        editorModal.style.display = 'flex';
+    });
+    cancelEditBtn.addEventListener('click', () => editorModal.style.display = 'none');
+    
+    function setupCanvas() {
+        const img = new Image();
+        img.onload = () => {
+            canvasContainer.innerHTML = '';
+            editorCanvas = document.createElement('canvas');
+            editorCanvas.id = 'editor-canvas';
+            editorCanvas.width = img.width;
+            editorCanvas.height = img.height;
+            editorCanvas.style.width = '100%';
+            editorCanvas.style.height = 'auto';
+            canvasContainer.appendChild(editorCanvas);
+            ctx = editorCanvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            editorCanvas.addEventListener('mousedown', startDrawing);
+            editorCanvas.addEventListener('mouseup', stopDrawing);
+            editorCanvas.addEventListener('mouseout', stopDrawing);
+            editorCanvas.addEventListener('mousemove', draw);
+        };
+        img.src = originalPreview.src;
+    }
+
+    function startDrawing(e) { isDrawing = true; draw(e); }
+    function stopDrawing() { isDrawing = false; ctx.beginPath(); }
+    
+    function draw(e) {
+        if (!isDrawing) return;
+        const rect = editorCanvas.getBoundingClientRect();
+        const scaleX = editorCanvas.width / rect.width;
+        const scaleY = editorCanvas.height / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+
+        ctx.lineWidth = brushSize;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = brushColor;
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+    }
+
+    brushKeepBtn.addEventListener('click', () => {
+        brushColor = 'rgba(0, 255, 0, 0.7)';
+        brushKeepBtn.classList.add('bg-green-500', 'text-white');
+        brushRemoveBtn.classList.remove('bg-red-500', 'text-white');
+    });
+    
+    brushRemoveBtn.addEventListener('click', () => {
+        brushColor = 'rgba(255, 0, 0, 0.7)';
+        brushRemoveBtn.classList.add('bg-red-500', 'text-white');
+        brushKeepBtn.classList.remove('bg-green-500', 'text-white');
+    });
+    brushSizeSlider.addEventListener('input', (e) => brushSize = e.target.value);
+    
+    applyEditBtn.addEventListener('click', async () => {
+        loading.classList.remove('hidden');
+        editorModal.style.display = 'none';
+
+        editorCanvas.toBlob(async (editStrokesBlob) => {
+            const fd = new FormData();
+            fd.append('original_image', selectedFile);
+            fd.append('mask_image', baseCutoutBlob);
+            fd.append('edit_strokes', editStrokesBlob);
+
+            try {
+                const res = await fetch('/refine-mask', { method: 'POST', body: fd });
+                if (!res.ok) throw new Error(await res.text() || 'Refinement server error');
+                baseCutoutBlob = await res.blob();
+                currentPreviewBlob = baseCutoutBlob;
+                resultPreview.src = URL.createObjectURL(baseCutoutBlob);
+                recomposePreview();
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }, 'image/png');
+    });
+    
+    // --- ADVANCED OPTIONS LOGIC ---
+    async function blobToBitmap(blob) {
+        return createImageBitmap(blob);
+    }
+    function canvasToBlob(canvas, type, quality){ return new Promise((res)=>canvas.toBlob(res, type, quality)); }
+
+    chips.forEach(ch => ch.addEventListener('click', async () => {
+        chips.forEach(c => c.classList.remove('active'));
+        ch.classList.add('active');
+        selectedBG = ch.dataset.bg;
+        bgImageInput.value = ''; bgImageURL = null;
+        await recomposePreview();
+    }));
+    chips[0].classList.add('active');
+
+    bgImageInput.addEventListener('change', async (e) => {
+        if (!e.target.files.length) return;
+        const r = new FileReader();
+        r.onload = async () => {
+            bgImageURL = r.result;
+            selectedBG = 'custom';
+            chips.forEach(c => c.classList.remove('active'));
+            await recomposePreview();
+        };
+        r.readAsDataURL(e.target.files[0]);
+    });
+
+    [featherEl, outlineEl, shadowEl, outputFormat].forEach(el => el && el.addEventListener('input', () => recomposePreview()));
+    
+    async function recomposePreview() {
+        if (!baseCutoutBlob) return;
+        try {
+            const blob = await composeFromBase(outputFormat.value);
+            if (!blob) return;
+            currentPreviewBlob = blob;
+            const oldUrl = resultPreview.src;
+            resultPreview.src = URL.createObjectURL(blob);
+            if (oldUrl.startsWith('blob:')) URL.revokeObjectURL(oldUrl);
+            downloadBtn.disabled = false;
+        } catch(e){ setError(e.message || 'Failed to compose preview.'); }
+    }
+
+    async function composeFromBase(fmt) {
+        if (!baseCutoutBlob) return null;
+        const img = await blobToBitmap(baseCutoutBlob);
+        const w = img.width, h = img.height;
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+
+        if (bgImageURL) {
+            const bgImg = new Image();
+            bgImg.src = bgImageURL;
+            await bgImg.decode();
+            const bg = await blobToBitmap(await fetch(bgImageURL).then(res => res.blob()));
+            const ratio = Math.max(w / bg.width, h / bg.height);
+            const bw = bg.width * ratio, bh = bg.height * ratio;
+            ctx.drawImage(bg, (w - bw)/2, (h - bh)/2, bw, bh);
+        } else if (selectedBG === 'gradient') {
+            const g = ctx.createLinearGradient(0,0,w,h);
+            g.addColorStop(0, '#e0e7ff'); g.addColorStop(1, '#c7d2fe');
+            ctx.fillStyle = g; ctx.fillRect(0,0,w,h);
+        } else if (selectedBG && selectedBG !== 'transparent') {
+            ctx.fillStyle = selectedBG; ctx.fillRect(0,0,w,h);
+        }
+
+        const outline = parseInt(outlineEl.value, 10) || 0;
+        if (outline > 0) {
+            const oc = document.createElement('canvas'); oc.width = w; oc.height = h;
+            const octx = oc.getContext('2d');
+            octx.filter = `blur(${Math.max(1, outline/2)}px)`;
+            octx.drawImage(img, 0, 0);
+            ctx.save(); ctx.globalAlpha = 0.7; ctx.drawImage(oc, 0, 0); ctx.restore();
+        }
+
+        const shadow = parseInt(shadowEl.value, 10) || 0;
+        if (shadow > 0) {
+            ctx.save(); ctx.filter = `blur(${shadow}px)`; ctx.globalAlpha = 0.35;
+            ctx.drawImage(img, 0, 0); ctx.restore();
+        }
+
+        const feather = parseInt(featherEl.value, 10) || 0;
+        if (feather > 0) {
+            const fcan = document.createElement('canvas'); fcan.width = w; fcan.height = h;
+            const fctx = fcan.getContext('2d');
+            fctx.filter = `blur(${feather}px)`; fctx.drawImage(img, 0, 0);
+            ctx.save();
+            ctx.drawImage(fcan, 0, 0);
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.drawImage(img, 0, 0);
+            ctx.restore();
+        } else {
+            ctx.drawImage(img, 0, 0);
+        }
+
+        if (fmt === 'jpg')  return await canvasToBlob(canvas, 'image/jpeg', 0.92);
+        if (fmt === 'webp') return await canvasToBlob(canvas, 'image/webp', 0.92);
+        return await canvasToBlob(canvas, 'image/png');
+    }
+
+    downloadBtn.addEventListener('click', async () => {
+        if (!currentPreviewBlob) return;
+        const a = document.createElement('a');
+        const url = URL.createObjectURL(currentPreviewBlob)
+        a.href = url;
+        a.download = `artify-ai-result.${outputFormat.value}`;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
+    resetBtn.addEventListener('click', () => {
+        location.reload();
+    });
+});
+</script>
+</body>
+</html>
