@@ -77,13 +77,11 @@ def generate_background():
     prompt = request.form.get("prompt")
     
     # --- IMPORTANT: PASTE YOUR API KEY HERE ---
-    # Replace "your_stability_api_key_goes_here" with your actual secret key.
-    api_key = "sk-Zh6ghRuwZulKbeLGfLtCy4iR6zKMHcKNJuRToWEfo9fkS3qr"
+    api_key = "sk-Zh6ghRuwZulKbeLGfLtCy4iR6zKMHcKNJuRToWEfo9fkS3qr" # Replace with your key
 
     if not prompt:
         return "Missing prompt", 400
 
-    # Check if the placeholder key has been replaced
     if api_key == "your_stability_api_key_goes_here":
         return "API key has not been set in the backend.py file.", 500
 
@@ -102,6 +100,5 @@ def generate_background():
     except Exception as e:
         return f"An error occurred: {e}", 500
 
-# --- 4. RUN THE APP ---
-if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=8000, debug=True)
+# The if __name__ == "__main__": block has been removed.
+# Gunicorn will now have full control.
