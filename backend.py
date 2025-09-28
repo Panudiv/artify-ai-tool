@@ -12,12 +12,19 @@ from rembg import remove, new_session
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=APP_DIR, static_url_path="")
 
-# --- 2. INITIALIZE THE AI MODEL ---
-MODEL_NAME = "isnet-general-use" 
+# --- 2. INITIALIZE THE AI MODEL (CRUCIAL CHANGE) ---
+# We are switching to the smaller 'u2net' model to save memory on the free server.
+MODEL_NAME = "u2net" 
 session = new_session(model_name=MODEL_NAME)
 
 
 # --- 3. DEFINE ALL APP ROUTES ---
+
+# New Health Check Route for Render
+@app.route("/health")
+def health_check():
+    """A simple route to let Render know the app is alive."""
+    return "OK", 200
 
 @app.route("/")
 def serve_index():
@@ -37,7 +44,8 @@ def remove_background_api():
     except Exception as e:
         return f"Could not open image: {e}", 400
 
-    out = remove(inp, session=session, alpha_matting=True)
+    # Alpha matting is disabled as it's more resource-intensive
+    out = remove(inp, session=session)
     buf = BytesIO()
     out.save(buf, format="PNG")
     buf.seek(0)
@@ -75,15 +83,10 @@ def refine_mask():
 @app.route("/generate-background", methods=["POST"])
 def generate_background():
     prompt = request.form.get("prompt")
-    
-    # --- IMPORTANT: PASTE YOUR API KEY HERE ---
-    api_key = "sk-Zh6ghRuwZulKbeLGfLtCy4iR6zKMHcKNJuRToWEfo9fkS3qr" # Replace with your key
+    api_key = "your_stability_api_key_goes_here" # Replace with your key
 
-    if not prompt:
-        return "Missing prompt", 400
-
-    if api_key == "your_stability_api_key_goes_here":
-        return "API key has not been set in the backend.py file.", 500
+    if not prompt: return "Missing prompt", 400
+    if api_key == "your_stability_api_key_goes_here": return "API key has not been set in the backend.py file.", 500
 
     api_host = "https://api.stability.ai/v2beta/stable-image/generate/sd3"
     headers = {"authorization": f"Bearer {api_key}", "accept": "image/*"}
@@ -92,13 +95,8 @@ def generate_background():
     try:
         response = requests.post(api_host, headers=headers, files=files)
         if response.status_code == 200:
-            image_bytes = BytesIO(response.content)
-            return send_file(image_bytes, mimetype='image/png')
+            return send_file(BytesIO(response.content), mimetype='image/png')
         else:
-            error_message = response.json().get("errors", ["Unknown error"])[0]
-            return f"AI Generation Failed: {error_message}", response.status_code
+            return f"AI Generation Failed: {response.json().get('errors', ['Unknown error'])[0]}", response.status_code
     except Exception as e:
         return f"An error occurred: {e}", 500
-
-# The if __name__ == "__main__": block has been removed.
-# Gunicorn will now have full control.
